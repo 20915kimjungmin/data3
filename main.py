@@ -36,12 +36,11 @@ if not yearly.empty:
     ].copy()
     test_20 = yearly[(yearly["연도"] >= 2006) & (yearly["연도"] <= 2025)].copy()
 
-    # 2. 평가 지표 계산 함수
+    # 2. 평가 지표 계산 함수 (오류 방지를 위해 식을 명확히 분리)
     def calc_metrics(y_true, y_pred):
-        y_true = np.array(y_true)
-        y_pred = np.array(y_pred)
+        yt = np.array(y_true)
+        yp = np.array(y_pred)
 
-        mae = np.mean(np.abs(y_true - y_pred))
-        mse = np.mean((y_true - y_pred) ** 2)
-
-        ss_res = np.sum((y_true
+        errors = yt - yp
+        mae =
+        
