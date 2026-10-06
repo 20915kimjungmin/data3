@@ -1,92 +1,78 @@
-import streamlit as st
-import pandas as pd
 import numpy as np
+import pandas as pd
+import streamlit as st
 
-DATA_URL = "https://raw.githubusercontent.com/greatsong/modudata/bb860932644270ad1199f10d3e7670e30231bce4/data/seoul.csv"
+URL = "https://raw.githubusercontent.com/greatsong/modudata/bb860932644270ad1199f10d3e7670e30231bce4/data/seoul.csv"
 
 st.title("기온 예측기 및 모델 평가")
 
 
 @st.cache_data
-def load_yearly():
-    df = pd.read_csv(DATA_URL)
+def load_data():
+    df = pd.read_csv(URL)
     df["연도"] = pd.to_datetime(df["날짜"]).dt.year
-    grouped = df.groupby("연도")["평균기온"].agg(["mean", "count"]).reset_index()
-    valid = (grouped["연도"] <= 2025) & (grouped["count"] >= 300)
-    return grouped[valid].rename(columns={"mean": "연평균기온"})
+    g = df.groupby("연도")["평균기온"].agg(["mean", "count"]).reset_index()
+    v = (g["연도"] <= 2025) & (g["count"] >= 300)
+    return g[v].rename(columns={"mean": "연평균기온"})
 
 
-# 데이터 로드
-yearly = load_yearly()
+yearly = load_data()
 
-# 1. 데이터셋 분할
-train_50 = yearly[(yearly["연도"] >= 1956) & (yearly["연도"] <= 2005)]
-train_100 = yearly[(yearly["연도"] >= 1906) & (yearly["연도"] <= 2005)]
-test_20 = yearly[(yearly["연도"] >= 2006) & (yearly["연도"] <= 2025)]
+if not yearly.empty:
+    t50 = yearly[(yearly["연도"] >= 1956) & (yearly["연도"] <= 2005)]
+    t100 = yearly[(yearly["연도"] >= 1906) & (yearly["연도"] <= 2005)]
+    test = yearly[(yearly["연도"] >= 2006) & (yearly["연도"] <= 2025)]
 
+    def run_model(tr, te, name):
+        a, b = np.polyfit(tr["연도"], tr["연평균기온"], 1)
+        yt = te["연평균기온"].values
+        yp = a * te["연도"].values + b
+        err = yt - yp
+        mae = float(np.mean(np.abs(err)))
+        mse = float(np.mean(err**2))
+        s_res = float(np.sum(err**2))
+        s_tot = float(np.sum((yt - np.mean(yt)) ** 2))
+        r2 = float(1 - (s_res / s_tot)) if s_tot != 0 else 0.0
+        return {
+            "모델": name,
+            "학습기간": str(int(tr["연도"].min()))
+            + "~"
+            + str(int(tr["연도"].max())),
+            "기울기": round(float(a), 4),
+            "MAE": round(mae, 3),
+            "MSE": round(mse, 3),
+            "R2": round(r2, 3),
+            "a": float(a),
+            "b": float(b),
+        }
 
-# 2. 모델 학습 및 평가 함수
-def evaluate_model(train_df, test_df, name):
-    a, b = np.polyfit(train_df["연도"], train_df["연평균기온"], 1)
+    m_all = run_model(yearly, test, "전체")
+    m_50 = run_model(t50, test, "최근50년")
+    m_100 = run_model(t100, test, "최근100년")
 
-    y_true = test_df["연평균기온"].values
-    y_pred = a * test_df["연도"].values + b
+    st.subheader("평가 지표")
+    res_df = pd.DataFrame([m_all, m_50, m_100])
+    st.dataframe(
+        res_df[["모델", "학습기간", "기울기", "MAE", "MSE", "R2"]],
+        hide_index=True,
+        use_container_width=True,
+    )
 
-    errors = y_true - y_pred
-    mae = np.mean(np.abs(errors))
-    mse = np.mean(errors**2)
+    st.subheader("회귀선 비교")
+    c_df = pd.DataFrame({"연도": yearly["연도"], "실제기온": yearly["연평균기온"]})
+    c_df["전체"] = m_all["a"] * yearly["연도"] + m_all["b"]
+    c_df["50년"] = m_50["a"] * yearly["연도"] + m_50["b"]
+    c_df["100년"] = m_100["a"] * yearly["연도"] + m_100["b"]
+    st.line_chart(c_df, x="연도", use_container_width=True)
 
-    ss_res = np.sum(errors**2)
-    ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
-    r2 = 1 - (ss_res / ss_tot) if ss_tot != 0 else 0
+    st.subheader("예측기")
+    yr = st.slider("연도 선택", 1900, 2100, 2045)
+    v_all = round(m_all["a"] * yr + m_all["b"], 1)
+    v_50 = round(m_50["a"] * yr + m_50["b"], 1)
+    v_100 = round(m_100["a"] * yr + m_100["b"], 1)
 
-    min_yr = int(train_df["연도"].min())
-    max_yr = int(train_df["연도"].max())
-
-    return {
-        "모델": name,
-        "학습 기간": f"{min_yr}~{max_yr}",
-        "기울기(℃/년)": round(float(a), 4),
-        "MAE": round(float(mae), 3),
-        "MSE": round(float(mse), 3),
-        "R²": round(float(r2), 3),
-        "a": float(a),
-        "b": float(b),
-    }
-
-
-# 모델 구축
-res_full = evaluate_model(yearly, test_20, "전체 데이터")
-res_50 = evaluate_model(train_50, test_20, "최근 50년")
-res_100 = evaluate_model(train_100, test_20, "최근 100년")
-
-# 3. 평가 결과 표 출력
-st.subheader("📌 최근 20년(2006~2025) 공통 테스트 평가")
-eval_df = pd.DataFrame([res_full, res_50, res_100])
-st.dataframe(
-    eval_df[["모델", "학습 기간", "기울기(℃/년)", "MAE", "MSE", "R²"]],
-    hide_index=True,
-    use_container_width=True,
-)
-
-# 4. 회귀선 비교 차트
-chart_data = pd.DataFrame({"연도": yearly["연도"], "실제기온": yearly["연평균기온"]})
-chart_data["전체모델 회귀선"] = res_full["a"] * yearly["연도"] + res_full["b"]
-chart_data["50년모델 회귀선"] = res_50["a"] * yearly["연도"] + res_50["b"]
-chart_data["100년모델 회귀선"] = res_100["a"] * yearly["연도"] + res_100["b"]
-
-st.subheader("📈 모델별 회귀선 비교")
-st.line_chart(chart_data, x="연도", use_container_width=True)
-
-# 5. 연도 선택 및 예측
-st.subheader("🔮 예측기")
-year = st.slider("연도를 고르세요", 1900, 2100, 2045)
-
-# 수식을 미리 변수로 나누어 작성 (f-string 에러 방지)
-p_full = res_full["a"] * year + res_full["b"]
-p_50 = res_50["a"] * year + res_50["b"]
-p_100 = res_100["a"] * year + res_100["b"]
-
-col1, col2, col3 = st.columns(3)
-col1.metric("전체모델 예측", f"{p_full:.1f}℃")
-col2.metric("50년모델 예측", f"{p_50:.1f
+    c1, c2, c3 = st.columns(3)
+    c1.metric("전체 모델", str(v_all) + " 도")
+    c2.metric("50년 모델", str(v_50) + " 도")
+    c3.metric("100년 모델", str(v_100) + " 도")
+    
