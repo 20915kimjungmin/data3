@@ -19,7 +19,7 @@ def load_yearly():
 # 데이터 로드
 yearly = load_yearly()
 
-# 1. 데이터셋 분할 (학습용 및 테스트용)
+# 1. 데이터셋 분할
 train_50 = yearly[(yearly["연도"] >= 1956) & (yearly["연도"] <= 2005)]
 train_100 = yearly[(yearly["연도"] >= 1906) & (yearly["연도"] <= 2005)]
 test_20 = yearly[(yearly["연도"] >= 2006) & (yearly["연도"] <= 2025)]
@@ -27,14 +27,11 @@ test_20 = yearly[(yearly["연도"] >= 2006) & (yearly["연도"] <= 2025)]
 
 # 2. 모델 학습 및 평가 함수
 def evaluate_model(train_df, test_df, name):
-    # 선형 회귀 (a: 기울기, b: 절편)
     a, b = np.polyfit(train_df["연도"], train_df["연평균기온"], 1)
 
-    # 테스트 데이터 예측
     y_true = test_df["연평균기온"].values
     y_pred = a * test_df["연도"].values + b
 
-    # MAE, MSE, R2 계산
     errors = y_true - y_pred
     mae = np.mean(np.abs(errors))
     mse = np.mean(errors**2)
@@ -58,10 +55,10 @@ def evaluate_model(train_df, test_df, name):
     }
 
 
-# 각 모델 계산
+# 모델 구축
 res_full = evaluate_model(yearly, test_20, "전체 데이터")
-res_50 = evaluate_model(train_50, test_20, "최근 50년 (1956~2005)")
-res_100 = evaluate_model(train_100, test_20, "최근 100년 (1906~2005)")
+res_50 = evaluate_model(train_50, test_20, "최근 50년")
+res_100 = evaluate_model(train_100, test_20, "최근 100년")
 
 # 3. 평가 결과 표 출력
 st.subheader("📌 최근 20년(2006~2025) 공통 테스트 평가")
@@ -85,8 +82,11 @@ st.line_chart(chart_data, x="연도", use_container_width=True)
 st.subheader("🔮 예측기")
 year = st.slider("연도를 고르세요", 1900, 2100, 2045)
 
+# 수식을 미리 변수로 나누어 작성 (f-string 에러 방지)
+p_full = res_full["a"] * year + res_full["b"]
+p_50 = res_50["a"] * year + res_50["b"]
+p_100 = res_100["a"] * year + res_100["b"]
+
 col1, col2, col3 = st.columns(3)
-col1.metric("전체모델 예측", f"{res_full['a'] * year + res_full['b']:.1f}℃")
-col2.metric("50년모델 예측", f"{res_50['a'] * year + res_50['b']:.1f}℃")
-col3.metric("100년모델 예측", f"{res_100['a'] * year + res_10
-                        
+col1.metric("전체모델 예측", f"{p_full:.1f}℃")
+col2.metric("50년모델 예측", f"{p_50:.1f
