@@ -34,7 +34,7 @@ def evaluate_model(train_df, test_df, name):
     y_true = test_df["연평균기온"].values
     y_pred = a * test_df["연도"].values + b
 
-    # MAE, MSE, R2 수동 계산
+    # MAE, MSE, R2 계산
     errors = y_true - y_pred
     mae = np.mean(np.abs(errors))
     mse = np.mean(errors**2)
@@ -43,17 +43,18 @@ def evaluate_model(train_df, test_df, name):
     ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
     r2 = 1 - (ss_res / ss_tot) if ss_tot != 0 else 0
 
+    min_yr = int(train_df["연도"].min())
+    max_yr = int(train_df["연도"].max())
+
     return {
         "모델": name,
-        "학습 기간": f"{train_df['연도'].min()}~{train_df['연df'].max()}"
-        if "연df" in locals()
-        else f"{train_df['연도'].min()}~{train_df['연도'].max()}",
-        "기울기(℃/년)": round(a, 4),
-        "MAE": round(mae, 3),
-        "MSE": round(mse, 3),
-        "R²": round(r2, 3),
-        "a": a,
-        "b": b,
+        "학습 기간": f"{min_yr}~{max_yr}",
+        "기울기(℃/년)": round(float(a), 4),
+        "MAE": round(float(mae), 3),
+        "MSE": round(float(mse), 3),
+        "R²": round(float(r2), 3),
+        "a": float(a),
+        "b": float(b),
     }
 
 
@@ -65,4 +66,27 @@ res_100 = evaluate_model(train_100, test_20, "최근 100년 (1906~2005)")
 # 3. 평가 결과 표 출력
 st.subheader("📌 최근 20년(2006~2025) 공통 테스트 평가")
 eval_df = pd.DataFrame([res_full, res_50, res_100])
-st
+st.dataframe(
+    eval_df[["모델", "학습 기간", "기울기(℃/년)", "MAE", "MSE", "R²"]],
+    hide_index=True,
+    use_container_width=True,
+)
+
+# 4. 회귀선 비교 차트
+chart_data = pd.DataFrame({"연도": yearly["연도"], "실제기온": yearly["연평균기온"]})
+chart_data["전체모델 회귀선"] = res_full["a"] * yearly["연도"] + res_full["b"]
+chart_data["50년모델 회귀선"] = res_50["a"] * yearly["연도"] + res_50["b"]
+chart_data["100년모델 회귀선"] = res_100["a"] * yearly["연도"] + res_100["b"]
+
+st.subheader("📈 모델별 회귀선 비교")
+st.line_chart(chart_data, x="연도", use_container_width=True)
+
+# 5. 연도 선택 및 예측
+st.subheader("🔮 예측기")
+year = st.slider("연도를 고르세요", 1900, 2100, 2045)
+
+col1, col2, col3 = st.columns(3)
+col1.metric("전체모델 예측", f"{res_full['a'] * year + res_full['b']:.1f}℃")
+col2.metric("50년모델 예측", f"{res_50['a'] * year + res_50['b']:.1f}℃")
+col3.metric("100년모델 예측", f"{res_100['a'] * year + res_10
+                        
