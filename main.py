@@ -112,4 +112,3 @@ for col, res in zip([col1, col2, col3], [res_full, res_50, res_100]):
         value=f"{pred_val:.2f} ℃",
         delta=f"기울기: {res['기울기 (℃/년)']} ℃/년"
     )
-    
