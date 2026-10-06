@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 DATA_URL = "https://raw.githubusercontent.com/greatsong/modudata/bb860932644270ad1199f10d3e7670e30231bce4/data/seoul.csv"
 
 st.set_page_config(page_title="서울 연평균기온 선형회귀 평가", layout="wide")
-st.title("🌡️️ 서울 연평균기온 선형회귀 모델 평가 및 비교")
+st.title("🌡️ 서울 연평균기온 선형회귀 모델 평가 및 비교")
 
 
 @st.cache_data
@@ -26,7 +26,7 @@ train_100 = yearly[(yearly["연도"] >= 1906) & (yearly["연도"] <= 2005)].copy
 test_20 = yearly[(yearly["연도"] >= 2006) & (yearly["연도"] <= 2025)].copy()
 
 
-# 2. 평가 지표 직접 계산 함수 (sklearn 미사용)
+# 2. 평가 지표 계산 함수
 def calc_metrics(y_true, y_pred):
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
@@ -41,17 +41,4 @@ def calc_metrics(y_true, y_pred):
     return mae, mse, r2
 
 
-# 3. 모델 학습 및 평가 함수
-def fit_and_evaluate(train_df, test_df, label):
-    # y = a * x + b
-    a, b = np.polyfit(train_df["연도"], train_df["연평균기온"], 1)
-
-    y_true = test_df["연평균기온"]
-    y_pred = a * test_df["연도"] + b
-
-    mae, mse, r2 = calc_metrics(y_true, y_pred)
-
-    return {
-        "모델": label,
-        "학습 기간": f"{train_df['연도'].min()}~{train_df['연도'].max()} ({len
-    
+# 3. 모델 학습 및 평가 함수 (SyntaxError 방지를
